@@ -1,0 +1,188 @@
+The software used is Arduino IDE
+3.1 CODE UPLODED TO ARDUINO: 
+
+String inputString = ""; // a String to hold incoming data
+bool stringComplete = false;
+void setup(){
+ Serial.begin(115200);
+
+ pinMode(12, OUTPUT);
+ pinMode(11, OUTPUT);
+ pinMode(10, OUTPUT);
+ inputString.reserve(200);
+}
+int a=4;
+bool flag,flag1;
+void loop (){
+ if (stringComplete) {
+ a=inputString.toInt();
+ if(a==1){
+ flag=true;
+ }
+ else if(a==2){
+ flag1=true;}
+ else{
+ flag=0;
+ flag1=0;
+ }
+ Serial.println(a);
+ // clear the string:
+ inputString = "";
+ stringComplete = false;
+ }
+
+
+ if(flag){ 
+13
+ digitalWrite(12,LOW);
+ digitalWrite(10,HIGH);
+ digitalWrite(11,LOW);
+
+ }
+
+
+ else if(flag1){
+ digitalWrite(10,LOW);
+ digitalWrite(11,LOW);
+ digitalWrite(12,HIGH);
+
+ }
+ else{
+ digitalWrite(11,LOW);
+ digitalWrite(10,LOW);
+ digitalWrite(12,LOW);
+ digitalWrite(10,HIGH);
+ delay(a*1000);
+ digitalWrite(10,LOW);
+ digitalWrite(11,HIGH);
+ delay(600);
+ digitalWrite(11,LOW);
+ digitalWrite(12,HIGH);
+ delay(1800);
+ digitalWrite(12,LOW);
+ digitalWrite(11,HIGH);
+ delay(600);
+ flag=0;
+ flag1=0;
+}
+}
+void serialEvent() {
+ while (Serial.available()) {
+
+ char inChar = (char)Serial.read();
+ // add it to the inputString:
+ inputString += inChar;
+ if (inChar == '\n') {
+ stringComplete = true; 
+14
+ }
+ }
+}
+3.2 CODE UPLOADED TO ESP8266:
+#include<PubSubClient.h>
+#include<ESP8266WiFi.h>
+//EDIT THESE LINES TO MATCH YOUR SETUP
+#define MQTT_SERVER "192.168.43.1" ///YourMQTTBroker'sIP
+const char* ssid = "GT";
+const char* password = "124567890";
+char* Topic = "tlight3"; //subscribe to topic to be notified about
+WiFiClient wifiClient;
+void setup() {
+ //initialize the light as an output and set to LOW (off)
+ //start the serial line for debugging
+ Serial.begin(115200);
+ delay(100);
+ //start wifi subsystem
+ WiFi.begin(ssid, password);
+ //attempt to connect to the WIFI network and then connect to the MQTT server
+ reconnect();
+ //wait a bit before starting the main loop
+ delay(2000);
+}
+PubSubClient client(MQTT_SERVER, 18883, callback, wifiClient);
+void loop(){
+ //reconnect if connection is lost
+ if (!client.connected() && WiFi.status() == 3) {reconnect();} 
+15
+ //maintain MQTT connection
+ client.loop();
+ //MUST delay to allow ESP8266 WIFI functions to run
+ delay(20);
+ long now = millis();
+}
+void callback(char* topic, byte* payload, unsigned int length) {
+ //convert topic to string to make it easier to work with
+ String topicStr = topic;
+
+ //Print out some debugging info
+ ////Serial.println("Callback update.");
+ //Serial.print("Topic: ");
+ //Serial.println(topicStr);
+ //turn the light off if the payload is '0' and publish to the MQTT server a
+confirmation message
+ if (payload[0] == '0'){
+ client.publish("outTopic3", "Red light is ON");
+ Serial.print("0\n");}
+ if(payload[0] == '1'){
+ client.publish("outTopic3", "Red light is OFF");
+ Serial.print("1\n");}
+ if (payload[0] == '2'){
+ client.publish("outTopic3", "Yellow light is ON");
+ Serial.print("2\n");}
+ if(payload[0] == '3'){
+ client.publish("outTopic3", "Yellow light is OFF");
+ Serial.print("3\n");}
+ if (payload[0] == '4'){
+ client.publish("outTopic3", "Green light is ON");
+ Serial.print("4\n");}
+ if(payload[0] == '5'){
+ client.publish("outTopic3", "Green light is OFF");
+ Serial.print("5\n");}
+ if (payload[0] == '6'){
+ client.publish("outTopic3", "Relay 4 is ON"); 
+16
+ Serial.print("6\n");}
+ //if(payload[0] == '7'){
+ //client.publish("outTopic3", "Relay 4 is OFF");
+ //Serial.print("7");}/
+}
+void reconnect() {
+ //attempt to connect to the wifi if connection is lost
+ if(WiFi.status() != WL_CONNECTED){
+
+ while (WiFi.status() != WL_CONNECTED) {
+ delay(500);
+ }
+ }
+ //make sure we are connected to WIFI before attemping to reconnect to MQTT
+ if(WiFi.status() == WL_CONNECTED){
+ // Loop until we're reconnected to the MQTT server
+ while (!client.connected()) {
+ //Serial.print("Attempting MQTT connection...");
+ // Generate client name based on MAC address and last 8 bits of
+microsecond counter
+ String clientName;
+ clientName += "esp8266-";
+ uint8_t mac[6];
+ WiFi.macAddress(mac);
+ clientName += macToStr(mac);
+ if (client.connect((char*) clientName.c_str())) {
+ Serial.print("\tMTQQ Connected");
+ client.subscribe(Topic);
+ }
+ else{Serial.println("\tFailed."); abort();}
+ }
+ }
+}
+//generate unique name from MAC addr
+String macToStr(const uint8_t* mac){
+ String result; 
+17
+ for (int i = 0; i<6; ++i) {
+ result += String(mac[i], 16);
+ if (i<5){
+ result += ':';
+ }
+ }
+ return result;
+} 
